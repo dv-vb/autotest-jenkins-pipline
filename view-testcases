@@ -1,19 +1,89 @@
+# requires: Extensible HTML Publisher
+
 pipeline {
     agent any
     stages {
-        stage('拉取测试用例') {
+        stage('Pull Test Cases') {
             steps {
-                git url: '<test-cases-repo-url>', branch: 'master'
+                git url: 'https://github.com/dv-vb/switchtestcases.git', branch: 'main'
             }
         }
-        stage('读取用例') {
+        stage('read test cases') {
             steps {
                 script {
-                    def testCases = readJSON file: 'test_cases.json'
+                    def testCases = readJSON file: 'testcases.json'
                     env.TEST_CASES = testCases.encodeAsJSON()
                 }
             }
         }
-        // 后续执行用例的步骤保持不变
+        stage('Generate HTML') {
+            steps {
+                script {
+                    def jsonFileContent = readFile 'test_cases.json'
+                    def testCases = readJSON text: jsonFileContent
+                    def htmlTable = """
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Test Cases Table</title>
+                            <style>
+                                table {
+                                    border-collapse: collapse;
+                                    width: 100%;
+                                }
+                                th, td {
+                                    border: 1px solid #ddd;
+                                    padding: 8px;
+                                    text-align: left;
+                                }
+                                th {
+                                    background-color: #f2f2f2;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <h1>Testcases Table</h1>
+                            <table>
+                                <tr>
+                                    <th>Testcase ID</th>
+                                    <th>Testcase Name</th>
+                                    <th>Testcase Type</th>
+                                    <th>Testcase Path</th>
+                                    <th>Expect Rule</th>
+                                </tr>
+                    """
+                    testCases.each { caseInfo ->
+                        htmlTable += """
+                                <tr>
+                                    <td>${caseInfo.case_id}</td>
+                                    <td>${caseInfo.case_name}</td>
+                                    <td>${caseInfo.script_type}</td>
+                                    <td>${caseInfo.script_path}</td>
+                                    <td>${caseInfo.expect_rule}</td>
+                                </tr>
+                        """
+                    }
+                    htmlTable += """
+                            </table>
+                        </body>
+                        </html>
+                    """
+                    writeFile file: 'test_cases_table.html', text: htmlTable
+                }
+            }
+        }
+    }
+    post {
+        always {
+            publishHTML([
+                allowMissing: false,
+                alwaysLinkToLastBuild: false,
+                keepAll: true,
+                reportDir: '.',
+                reportFiles: 'test_cases_table.html',
+                reportName: 'testcases_table',
+                reportTitles: ''
+            ])
+        }
     }
 }
