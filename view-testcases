@@ -1,0 +1,19 @@
+pipeline {
+    agent any
+    stages {
+        stage('拉取测试用例') {
+            steps {
+                git url: '<test-cases-repo-url>', branch: 'master'
+            }
+        }
+        stage('读取用例') {
+            steps {
+                script {
+                    def testCases = readJSON file: 'test_cases.json'
+                    env.TEST_CASES = testCases.encodeAsJSON()
+                }
+            }
+        }
+        // 后续执行用例的步骤保持不变
+    }
+}
